@@ -3,6 +3,9 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { JobOrder, ProductSpec } from '../types';
 
 export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> => {
+  // Yield to UI immediately
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -33,7 +36,6 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   };
 
   const sanitize = (text: string): string => {
-    // Remove characters that are not basic ASCII/printable to avoid PDF generation hangs
     return text.replace(/[^\x20-\x7E\n]/g, ''); 
   };
 
@@ -78,13 +80,18 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   };
 
   const base64ToUint8Array = (base64: string) => {
-    const binaryString = window.atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    try {
+      const binaryString = window.atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes;
+    } catch (e) {
+      console.error("Base64 decode error", e);
+      return new Uint8Array(0);
     }
-    return bytes;
   };
 
   // --- PAGE 1: SALES (SECTION A) ---
@@ -103,16 +110,15 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
       try {
         const logoData = logoBase64Data.includes('base64,') ? logoBase64Data.split('base64,')[1] : logoBase64Data;
         const logoBytes = base64ToUint8Array(logoData);
-        const pngImage = await pdfDoc.embedPng(logoBytes);
-        
-        const targetHeight = 35;
-        const scale = targetHeight / pngImage.height;
-        const pngDims = pngImage.scale(scale); 
-        
-        const textWidthApprox = 190;
-        const logoX = (PAGE_WIDTH / 2) - (textWidthApprox / 2) - pngDims.width - 15;
-        
-        page1.drawImage(pngImage, { x: logoX, y: y - 5, width: pngDims.width, height: pngDims.height });
+        if (logoBytes.length > 0) {
+            const pngImage = await pdfDoc.embedPng(logoBytes);
+            const targetHeight = 35;
+            const scale = targetHeight / pngImage.height;
+            const pngDims = pngImage.scale(scale); 
+            const textWidthApprox = 190;
+            const logoX = (PAGE_WIDTH / 2) - (textWidthApprox / 2) - pngDims.width - 15;
+            page1.drawImage(pngImage, { x: logoX, y: y - 5, width: pngDims.width, height: pngDims.height });
+        }
       } catch (err) {
           console.error("Error embedding logo", err);
       }
@@ -171,10 +177,10 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   const sectionAContentTopY = y;
   const colWidth = CONTENT_WIDTH / 2;
   
-  // DYNAMIC COLUMN CONTENT GENERATOR - Async to avoid freezing
-  const drawContentColumn = async (startX: number, data: ProductSpec | undefined): Promise<number> => {
-    // Yield to main thread to prevent "Page Unresponsive" on slower devices
-    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  // DYNAMIC COLUMN CONTENT GENERATOR - Converted to function to avoid arrow function syntax issues with generics
+  async function drawContentColumn(startX: number, data: ProductSpec | undefined): Promise<number> {
+    // Yield to main thread
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     let cy = sectionAContentTopY - 10;
     const contentW = colWidth - 10;
@@ -331,7 +337,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     if (p.supplySource?.others === 'Halagel') drawTick(page1, c2X, cy - 2);
 
     return cy - 8; 
-  };
+  }
 
   // Draw Columns for Product 1 and Product 2 (Async calls)
   const endY1 = await drawContentColumn(MARGIN, order);
@@ -419,8 +425,8 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   const rowHeight = 14;
   const numRows = 25;
   for (let i = 0; i < numRows; i++) {
-    // Yield every 5 rows to prevent freezing if list is huge (though 25 is small)
-    if (i % 5 === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    // Yield every 5 rows to prevent freezing
+    if (i % 5 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
 
     const mat = order.materials && order.materials[i];
     currX = tX;
@@ -509,5 +515,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   drawLine(page2, MARGIN + 100, py - 2, PAGE_WIDTH - MARGIN, py - 2);
   drawText(page2, order.pendingReason, MARGIN + 105, py, S_TEXT);
 
+  // Yield one last time before heavy save
+  await new Promise((resolve) => setTimeout(resolve, 0));
   return await pdfDoc.save();
 };
