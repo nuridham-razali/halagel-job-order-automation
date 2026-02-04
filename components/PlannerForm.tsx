@@ -96,6 +96,8 @@ const PlannerForm: React.FC<PlannerFormProps> = ({ orderId, onClose }) => {
   const handleDownloadPDF = async () => {
     if (!order) return;
     setLoading(true);
+    // Yield to allow UI update to "Generating..."
+    await new Promise(resolve => setTimeout(resolve, 50));
     try {
         // Auto-save before downloading
         await handleSave(order.finalStatus || 'Pending');
