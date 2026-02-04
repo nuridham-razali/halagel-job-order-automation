@@ -97,18 +97,18 @@ const PlannerForm: React.FC<PlannerFormProps> = ({ orderId, onClose }) => {
     if (!order) return;
     setLoading(true);
     try {
-        // Auto-save before downloading to ensure latest data is used
+        // Auto-save before downloading
         await handleSave(order.finalStatus || 'Pending');
         
         const freshOrder = StorageService.getOrderById(orderId);
         if(freshOrder) {
             const pdfBytes = await generateJobOrderPDF(freshOrder);
-            // Fix: Explicitly cast pdfBytes to any or BlobPart to avoid TS strictness issues with Uint8Array
+            // Fix: Cast pdfBytes to any to satisfy TS BlobPart definition
             const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = `JobOrder_${freshOrder.poNumber}.pdf`;
-            document.body.appendChild(link); // Append to body for Firefox compatibility
+            document.body.appendChild(link); 
             link.click();
             document.body.removeChild(link);
         }
