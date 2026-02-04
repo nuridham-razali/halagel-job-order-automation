@@ -35,6 +35,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   // Helper to sanitize text for PDF-Lib Standard Fonts (WinAnsi)
   // Replaces non-printable/non-ASCII characters to prevent library hangs/errors
   const sanitize = (text: string): string => {
+    // Remove characters that are not basic ASCII to avoid PDF generation issues
     return text.replace(/[^\x20-\x7E\n]/g, ''); 
   };
 
@@ -80,7 +81,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     page.drawLine({ start: { x: startX, y: startY }, end: { x: endX, y: endY }, thickness: 0.8, color: rgb(0,0,0) });
   };
 
-  // Convert Base64 to Uint8Array for robust embedding
+  // Convert Base64 to Uint8Array for robust embedding to prevent freezing on large strings
   const base64ToUint8Array = (base64: string) => {
     const binaryString = window.atob(base64);
     const len = binaryString.length;
@@ -107,6 +108,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   // Dynamic Logo Positioning
   if (logoBase64Data) {
       try {
+        // Strip prefix if present
         const logoData = logoBase64Data.includes('base64,') 
             ? logoBase64Data.split('base64,')[1] 
             : logoBase64Data;
@@ -192,12 +194,15 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   const colWidth = CONTENT_WIDTH / 2;
   
   // DYNAMIC COLUMN CONTENT GENERATOR
+  // This function draws the form structure (labels, lines, boxes) 
+  // and fills it if data is present. If data is undefined, it draws a blank form.
   const drawContentColumn = (startX: number, data: ProductSpec | undefined) => {
     let cy = sectionAContentTopY - 10;
     const contentW = colWidth - 10;
     const innerX = startX + 5; 
     
     // Use a safe empty object if data is undefined to allow drawing blank structure
+    // This ensures Product 2 column is drawn even if not added.
     const p = data || {} as any;
 
     // A. PRODUCT DETAIL
@@ -354,6 +359,9 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
 
   // Draw Columns for Product 1 and Product 2
   const endY1 = drawContentColumn(MARGIN, order);
+  
+  // Always draw Product 2 column, even if undefined. 
+  // It will display the form headers/structure but blank data.
   const endY2 = drawContentColumn(PAGE_WIDTH / 2, order.product2); 
 
   // Make space for signature box
