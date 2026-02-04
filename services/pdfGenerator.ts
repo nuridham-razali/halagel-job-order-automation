@@ -32,18 +32,30 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     return str;
   };
 
+  // Helper to sanitize text for PDF-Lib Standard Fonts (WinAnsi)
+  // Replaces non-printable/non-ASCII characters to prevent library hangs/errors
+  const sanitize = (text: string): string => {
+    return text.replace(/[^\x20-\x7E\n]/g, ''); 
+  };
+
   const drawText = (page: any, text: any, x: number, y: number, size: number = S_TEXT, isBold: boolean = false, align: 'left'|'center'|'right' = 'left', maxLen: number = 100) => {
     const f = isBold ? boldFont : font;
-    const str = safeStr(text, maxLen); // Ensure string and truncate
+    let str = safeStr(text, maxLen); 
+    str = sanitize(str); // Sanitize before width calculation or drawing
+
     let xPos = x;
-    if (align === 'center') {
-        const width = f.widthOfTextAtSize(str, size);
-        xPos = x - width / 2;
-    } else if (align === 'right') {
-        const width = f.widthOfTextAtSize(str, size);
-        xPos = x - width;
+    try {
+        if (align === 'center') {
+            const width = f.widthOfTextAtSize(str, size);
+            xPos = x - width / 2;
+        } else if (align === 'right') {
+            const width = f.widthOfTextAtSize(str, size);
+            xPos = x - width;
+        }
+        page.drawText(str, { x: xPos, y, size, font: f, color: rgb(0,0,0) });
+    } catch (e) {
+        console.warn('Error drawing text:', str, e);
     }
-    page.drawText(str, { x: xPos, y, size, font: f, color: rgb(0,0,0) });
   };
 
   const drawBox = (page: any, x: number, y: number, w: number, h: number) => {
@@ -68,6 +80,17 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     page.drawLine({ start: { x: startX, y: startY }, end: { x: endX, y: endY }, thickness: 0.8, color: rgb(0,0,0) });
   };
 
+  // Convert Base64 to Uint8Array for robust embedding
+  const base64ToUint8Array = (base64: string) => {
+    const binaryString = window.atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  };
+
   // --- PAGE 1: SALES (SECTION A) ---
   const page1 = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - 30;
@@ -84,14 +107,14 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   // Dynamic Logo Positioning
   if (logoBase64Data) {
       try {
-        // Strip data URI prefix if present as pdf-lib expects raw base64
         const logoData = logoBase64Data.includes('base64,') 
             ? logoBase64Data.split('base64,')[1] 
             : logoBase64Data;
         
-        const pngImage = await pdfDoc.embedPng(logoData);
+        const logoBytes = base64ToUint8Array(logoData);
+        const pngImage = await pdfDoc.embedPng(logoBytes);
         
-        // Scale logo to a fixed height (e.g., 35) to prevent it from being too big
+        // Scale logo to a fixed height (e.g., 35)
         const targetHeight = 35;
         const scale = targetHeight / pngImage.height;
         const pngDims = pngImage.scale(scale); 
