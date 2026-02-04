@@ -88,7 +88,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
         const pngDims = pngImage.scale(0.8); 
         
         // Position logic: Left of the centered text
-        const textWidthApprox = 190;
+        const textWidthApprox = 90;
         const logoX = (PAGE_WIDTH / 2) - (textWidthApprox / 2) - pngDims.width - 15;
         
         page1.drawImage(pngImage, {
