@@ -169,7 +169,8 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     const contentW = colWidth - 10;
     const innerX = startX + 5; 
     
-    if (!data) return cy; // Empty column if no product
+    // Use a safe empty object if data is undefined to allow drawing blank structure
+    const p = data || {} as any;
 
     // A. PRODUCT DETAIL
     drawText(page1, 'A. PRODUCT DETAIL', innerX, cy, S_BOLD, true);
@@ -178,7 +179,7 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     // Product Name
     drawText(page1, 'PRODUCT NAME :', innerX, cy, S_TEXT);
     drawLine(page1, innerX + 80, cy, innerX + contentW, cy);
-    drawText(page1, data.productName || '', innerX + 82, cy + 2, S_TEXT);
+    drawText(page1, p.productName || '', innerX + 82, cy + 2, S_TEXT);
     
     cy -= 18;
     
@@ -195,8 +196,8 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
         drawBox(page1, tblX, ty - tblRowH, 60, tblRowH);
         drawText(page1, row, tblX + 2, ty - 9, S_TEXT);
         drawBox(page1, tblX + 60, ty - tblRowH, tblW - 60, tblRowH);
-        if (data.unitType === row) {
-            drawText(page1, data.orderQuantity, tblX + 65, ty - 9, S_TEXT);
+        if (p.unitType === row) {
+            drawText(page1, p.orderQuantity, tblX + 65, ty - 9, S_TEXT);
         }
         ty -= tblRowH;
     });
@@ -237,33 +238,33 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     cy = drawSpecGroup(
         'PRODUCT CATEGORY', 
         ['Traditional & Health Supplement', 'Toothpaste & Cosmetics', 'Food & Beverages'], 
-        data.categories,
-        data.categoriesOthers
+        p.categories,
+        p.categoriesOthers
     );
     cy = drawSpecGroup(
         'PRODUCT TYPE', 
         ['Softgel', 'Hard Capsule', 'Toothpaste', 'Liquid', 'Cosmetics', 'Food'], 
-        data.productTypes,
-        data.productTypesOthers
+        p.productTypes,
+        p.productTypesOthers
     );
     cy = drawSpecGroup(
         'PACKING TYPE', 
         ['HDPE White Bottle', 'Amber Glass Bottle', 'PET Amber Glass Bottle'], 
-        data.packingTypes,
-        data.packingTypesOthers
+        p.packingTypes,
+        p.packingTypesOthers
     );
 
     cy -= 2;
     drawText(page1, 'WEIGHT / ITEM', innerX, cy, S_TEXT);
     drawBox(page1, innerX + 95, cy - 2, contentW - 95, 11);
-    drawText(page1, data.weightPerItem || '', innerX + 98, cy + 1, S_TEXT);
+    drawText(page1, p.weightPerItem || '', innerX + 98, cy + 1, S_TEXT);
     
     cy -= 15;
     const qtyRows = [
-        {l: 'QUANTITY PER BOTTLE', v: data.qtyPerBottle},
-        {l: 'QUANTITY PER BLISTER', v: data.qtyPerBlister},
-        {l: 'QUANTITY PER BOX / SET', v: data.qtyPerBoxSet},
-        {l: 'QUANTITY PER CARTON', v: data.qtyPerCarton},
+        {l: 'QUANTITY PER BOTTLE', v: p.qtyPerBottle},
+        {l: 'QUANTITY PER BLISTER', v: p.qtyPerBlister},
+        {l: 'QUANTITY PER BOX / SET', v: p.qtyPerBoxSet},
+        {l: 'QUANTITY PER CARTON', v: p.qtyPerCarton},
     ];
     qtyRows.forEach(q => {
         drawText(page1, q.l, innerX, cy, 7);
@@ -302,12 +303,12 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
         drawBox(page1, c1X, cy - 2, CB_W, CB_H);
         drawText(page1, 'Customer', c1X + CB_W + 5, cy + 1, 7);
         // @ts-ignore
-        if (data.supplySource?.[item.k] === 'Customer') drawTick(page1, c1X, cy - 2);
+        if (p.supplySource?.[item.k] === 'Customer') drawTick(page1, c1X, cy - 2);
         
         drawBox(page1, c2X, cy - 2, CB_W, CB_H);
         drawText(page1, 'Halagel', c2X + CB_W + 5, cy + 1, 7);
         // @ts-ignore
-        if (data.supplySource?.[item.k] === 'Halagel') drawTick(page1, c2X, cy - 2);
+        if (p.supplySource?.[item.k] === 'Halagel') drawTick(page1, c2X, cy - 2);
         cy -= 11; 
     });
 
@@ -315,10 +316,10 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
     drawText(page1, 'OTHERS :', innerX, cy, 7);
     drawBox(page1, c1X, cy - 2, CB_W, CB_H);
     drawText(page1, 'Customer', c1X + CB_W + 5, cy + 1, 7);
-    if (data.supplySource?.others === 'Customer') drawTick(page1, c1X, cy - 2);
+    if (p.supplySource?.others === 'Customer') drawTick(page1, c1X, cy - 2);
     drawBox(page1, c2X, cy - 2, CB_W, CB_H);
     drawText(page1, 'Halagel', c2X + CB_W + 5, cy + 1, 7);
-    if (data.supplySource?.others === 'Halagel') drawTick(page1, c2X, cy - 2);
+    if (p.supplySource?.others === 'Halagel') drawTick(page1, c2X, cy - 2);
 
     return cy - 8; 
   };
@@ -393,8 +394,10 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   // TABLE HEADER
   const tX = MARGIN;
   const tW = CONTENT_WIDTH;
-  const colWidths = [30, 150, 90, 90, 90, 85]; 
-  const headers = ['Item\nCode', 'Raw @ Packaging Material', 'Quantity Required\n(kg/pcs)', 'Stock Balance (kg/pcs)', 'Quantity to Order\n(kg/pcs)', 'PR No'];
+  // Adjusted widths to prevent 'Item Code' wrapping and balance columns
+  // Item Code: 55, Raw Mat: 140, Qty(3): 85 each, PR: 85
+  const colWidths = [55, 140, 85, 85, 85, 85]; 
+  const headers = ['Item Code', 'Raw @ Packaging Material', 'Quantity Required\n(kg/pcs)', 'Stock Balance\n(kg/pcs)', 'Quantity to Order\n(kg/pcs)', 'PR No'];
   
   const headerH = 25;
   drawFilledBox(page2, tX, py - headerH, tW, headerH, rgb(0.85, 0.85, 0.85));
