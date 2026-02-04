@@ -84,7 +84,12 @@ export const generateJobOrderPDF = async (order: JobOrder): Promise<Uint8Array> 
   // Dynamic Logo Positioning
   if (logoBase64Data) {
       try {
-        const pngImage = await pdfDoc.embedPng(logoBase64Data);
+        // Strip data URI prefix if present as pdf-lib expects raw base64
+        const logoData = logoBase64Data.includes('base64,') 
+            ? logoBase64Data.split('base64,')[1] 
+            : logoBase64Data;
+        
+        const pngImage = await pdfDoc.embedPng(logoData);
         
         // Scale logo to a fixed height (e.g., 35) to prevent it from being too big
         const targetHeight = 35;
