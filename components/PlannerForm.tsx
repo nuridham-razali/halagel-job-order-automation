@@ -97,16 +97,20 @@ const PlannerForm: React.FC<PlannerFormProps> = ({ orderId, onClose }) => {
     if (!order) return;
     setLoading(true);
     try {
+        // Auto-save before downloading to ensure latest data is used
         await handleSave(order.finalStatus || 'Pending');
         
         const freshOrder = StorageService.getOrderById(orderId);
         if(freshOrder) {
             const pdfBytes = await generateJobOrderPDF(freshOrder);
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            // Fix: Explicitly cast pdfBytes to any or BlobPart to avoid TS strictness issues with Uint8Array
+            const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = `JobOrder_${freshOrder.poNumber}.pdf`;
+            document.body.appendChild(link); // Append to body for Firefox compatibility
             link.click();
+            document.body.removeChild(link);
         }
     } catch (e) {
         console.error("PDF Generation failed", e);
@@ -126,7 +130,7 @@ const PlannerForm: React.FC<PlannerFormProps> = ({ orderId, onClose }) => {
             <h2 className="text-xl font-bold text-gray-900">Planning Section (Order: {order.poNumber})</h2>
         </div>
         <div className="space-x-2">
-            <button onClick={handleDownloadPDF} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold flex items-center inline-flex">
+            <button onClick={handleDownloadPDF} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-bold flex items-center inline-flex transition-colors">
                 <Download className="w-4 h-4 mr-2" /> {loading ? 'Generating...' : 'Download PDF'}
             </button>
         </div>
