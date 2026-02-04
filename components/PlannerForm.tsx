@@ -96,19 +96,24 @@ const PlannerForm: React.FC<PlannerFormProps> = ({ orderId, onClose }) => {
   const handleDownloadPDF = async () => {
     if (!order) return;
     setLoading(true);
-    await handleSave(order.finalStatus || 'Pending');
-    
-    const freshOrder = StorageService.getOrderById(orderId);
-    if(freshOrder) {
-        const pdfBytes = await generateJobOrderPDF(freshOrder);
-        // Cast pdfBytes to any to avoid type mismatch with BlobPart in some environments
-        const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `JobOrder_${freshOrder.poNumber}.pdf`;
-        link.click();
+    try {
+        await handleSave(order.finalStatus || 'Pending');
+        
+        const freshOrder = StorageService.getOrderById(orderId);
+        if(freshOrder) {
+            const pdfBytes = await generateJobOrderPDF(freshOrder);
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `JobOrder_${freshOrder.poNumber}.pdf`;
+            link.click();
+        }
+    } catch (e) {
+        console.error("PDF Generation failed", e);
+        alert("Failed to generate PDF. Please check console for details.");
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   };
 
   if (!order) return <div>Loading...</div>;
